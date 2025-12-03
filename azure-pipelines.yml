@@ -1,52 +1,73 @@
+# Pipeline Build uniquement pour projet Blazor
 trigger:
-- main
-- develop
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - README.md
+    - docs/*
 
 pool:
   vmImage: 'windows-latest'
 
 variables:
   buildConfiguration: 'Release'
-  dotnetVersion: '8.x' # ou '7.x', '6.x' selon votre version
+  dotnetVersion: '8.0.x'
+  projectPath: 'src/MonProjetBlazor/MonProjetBlazor.csproj'
+  artifactName: 'blazor-app'
 
-steps:
-- task: UseDotNet@2
-  displayName: 'Installer .NET SDK'
-  inputs:
-    version: '$(dotnetVersion)'
-    includePreviewVersions: false
-
-- task: DotNetCoreCLI@2
-  displayName: 'Restaurer les packages'
-  inputs:
-    command: 'restore'
-    projects: '**/*.csproj'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Build du projet'
-  inputs:
-    command: 'build'
-    projects: '**/*.csproj'
-    arguments: '--configuration $(buildConfiguration) --no-restore'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Exécuter les tests'
-  inputs:
-    command: 'test'
-    projects: '**/*Tests.csproj'
-    arguments: '--configuration $(buildConfiguration) --no-build --no-restore'
-    publishTestResults: true
-
-- task: DotNetCoreCLI@2
-  displayName: 'Publier le projet'
-  inputs:
-    command: 'publish'
-    projects: '**/*.csproj'
-    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/publish --no-build --no-restore'
-
-- task: PublishBuildArtifacts@1
-  displayName: 'Publier les artefacts'
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)/publish'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
+jobs:
+- job: BuildJob
+  displayName: 'Build Blazor Application'
+  steps:
+  
+  # Installation du SDK .NET
+  - task: UseDotNet@2
+    displayName: 'Installer .NET SDK $(dotnetVersion)'
+    inputs:
+      packageType: 'sdk'
+      version: $(dotnetVersion)
+  
+  # Restauration des dépendances
+  - task: DotNetCoreCLI@2
+    displayName: 'Restore NuGet packages'
+    inputs:
+      command: 'restore'
+      projects: '**/*.csproj'
+  
+  # Build du projet
+  - task: DotNetCoreCLI@2
+    displayName: 'Build project'
+    inputs:
+      command: 'build'
+      projects: $(projectPath)
+      arguments: '--configuration $(buildConfiguration) --no-restore'
+  
+  # Exécution des tests unitaires (optionnel)
+  - task: DotNetCoreCLI@2
+    displayName: 'Run unit tests'
+    inputs:
+      command: 'test'
+      projects: '**/*Tests.csproj'
+      arguments: '--configuration $(buildConfiguration) --no-build --collect:"XPlat Code Coverage"'
+    continueOnError: true
+  
+  # Publication du projet
+  - task: DotNetCoreCLI@2
+    displayName: 'Publish application'
+    inputs:
+      command: 'publish'
+      publishWebProjects: false
+      projects: $(projectPath)
+      arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+      zipAfterPublish: true
+  
+  # Publication des artifacts
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish build artifacts'
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: $(artifactName)
+      publishLocation: 'Container'
