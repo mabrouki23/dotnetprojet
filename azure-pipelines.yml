@@ -15,7 +15,7 @@ pool:
 variables:
   buildConfiguration: 'Release'
   dotnetVersion: '10.0.x'
-  projectPath: 'src/MonProjetBlazor/MonProjetBlazor.csproj'
+  projectPath: '**/dotnetprojet.csproj'
   artifactName: 'blazor-app'
 
 jobs:
